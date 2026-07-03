@@ -13,6 +13,8 @@ public:
 private:
     //helper function block to print middle data fields
     static void PrintFileHeader(const IMAGE_FILE_HEADER& fileHeader);
+    static void PrintOptionalHeader(const IMAGE_OPTIONAL_HEADER& fileHeader);
+
     //helper function block to track section properties array data,prints all tables
     static void PrintSectionTable(const std::vector<IMAGE_SECTION_HEADER>& sections);
 };

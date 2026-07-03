@@ -4,83 +4,87 @@
 #include <cstring>
 #include <iomanip>
 
-//core parser logic execution start map block
 bool PEParser::Parse(const std::string& filePath) {
-    //opening file in binary mode
     std::ifstream file(filePath, std::ios::binary);
-    //check if file streaming process opened successfully, returns false if file does not exist
     if (!file.is_open()) {
         std::cerr <<"Error: Could not open file: " << filePath << std::endl;
         return false;
     }
 
-    //create storage memory buffer holding standard old dos mz header box
     IMAGE_DOS_HEADER dosHeader;
-    //read stream bits into raw dos data pointer variable address location
     file.read(reinterpret_cast<char*>(&dosHeader), sizeof(IMAGE_DOS_HEADER));
 
-    //verify old signature keyword matching, check mz format code tag character
+    //every PE file has image dos signature 'MZ'
+    //if it is missing, file is not valid executable
     if (dosHeader.e_magic != IMAGE_DOS_SIGNATURE) {
         std::cerr << "Error: Invalid DOS Signature (Not a valid executable)." << std::endl;
         return false;
     }
 
     std::cout << "Valid DOS Header Found." << std::endl;
-    //prints offset value in hexadecimal
+    
+    //e_lfanew stores the file offset of the PE (NT) headers.
     std::cout << "PE Header Offset (e_lfanew): 0x" << std::hex << dosHeader.e_lfanew << std::dec << std::endl;
 
-    //moves file pointer to real pe block
+    //seek to the PE (NT) headers using the offset stored in e_lfanew.
     file.seekg(dosHeader.e_lfanew, std::ios::beg);
-    //create storage box for holding 4 byte pe signature code word
+
+    //4 byte pe signature(PE/0/0) immediately preceeds NT headers 
     DWORD peSignature;
-    //read target signature field directly from executable file disk stream blocks
     file.read(reinterpret_cast<char*>(&peSignature), sizeof(DWORD));
 
-    //verifies if pe check passes
+    //PE signature confirms valid NT headers exist
     if (peSignature != IMAGE_NT_SIGNATURE) {
         std::cerr << "Error: Invalid PE Signature." << std::endl;
         return false;
     }
     std::cout << "Valid PE Signature Found." << std::endl;
 
-    //create empty memory layout instance box, metadata memory allocation
     IMAGE_FILE_HEADER fileHeader;
-    //read data into memory address buffer block allocated directly
     file.read(reinterpret_cast<char*>(&fileHeader), sizeof(IMAGE_FILE_HEADER));
-    //sends metadata to screen function
+    
     PrintFileHeader(fileHeader);
+    
+    IMAGE_OPTIONAL_HEADER64 optionalHeader;
+    
+    file.read(reinterpret_cast<char*>(&optionalHeader), sizeof(IMAGE_OPTIONAL_HEADER));
+    PrintOptionalHeader(optionalHeader);
 
-    //uses seekg to skip optional header
-    file.seekg(fileHeader.SizeOfOptionalHeader, std::ios::cur);
-
-    //internal storage section units, allocates dynamic section list
     std::vector<IMAGE_SECTION_HEADER> sections(fileHeader.NumberOfSections);
-    //read block array data elements into vector storage container base sequentially, reads all sections at once
     file.read(reinterpret_cast<char*>(sections.data()), fileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER));
     
-    //prints the final data table
+
     PrintSectionTable(sections);
 
     return true;
 }
 
-//displays gathered data on screen
 void PEParser::PrintFileHeader(const IMAGE_FILE_HEADER& fileHeader) {
     std::cout << "\n--- COFF FILE HEADER ---" << std::endl;
     std::cout << "    Machine Type:         0x" << std::hex << fileHeader.Machine;
     
-    //check if platform machine type is direct 64 bit architecture match logic
-    if (fileHeader.Machine == IMAGE_FILE_MACHINE_AMD64) std::cout << " (x64 Native)";
-    //check if platform layout points to old legacy 32 bit system model
-    else if (fileHeader.Machine == IMAGE_FILE_MACHINE_I386) std::cout << " (x86 Legacy)";
+    //machine field identifies target processor architecture
+    if (fileHeader.Machine == IMAGE_FILE_MACHINE_AMD64) std::cout << " (x64)";
+    else if (fileHeader.Machine == IMAGE_FILE_MACHINE_I386) std::cout << " (x86)";
     
     std::cout << std::dec << std::endl;
-    //prints total number of sections
     std::cout << "    Number of Sections:   " << fileHeader.NumberOfSections << std::endl;
-    //prints creation timestamp integer
     std::cout << "    Time Date Stamp UTC:  " << fileHeader.TimeDateStamp << std::endl;
-    //prints size format specs
     std::cout << "    Size of Optional Hdr: " << fileHeader.SizeOfOptionalHeader << " bytes" << std::endl;
+
+}
+
+
+void PEParser::PrintOptionalHeader(const IMAGE_OPTIONAL_HEADER& optionalHeader){
+    std::cout << " --- OPTIONAL HEADERS --- " << std::endl;
+    std::cout<< "   PE Format Type:   " << std::hex <<optionalHeader.Magic;
+
+    //magic field identifies whether optionalHeader uses PE32 or PE32+ format
+    if(optionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC){ std::cout << " (PE32)";}
+    else if(optionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC){ std::cout << " (PE32+)";}
+
+
+
 }
 
 //loop print function processing continuous section table block objects metadata matrix

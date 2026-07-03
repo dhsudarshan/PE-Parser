@@ -11,14 +11,14 @@ int main(int argc, char* argv[]) {
 
     //path string storage
     std::string targetFile = argv[1];
-    std::cout << "[*] Starting analysis on file: " << targetFile << "\n" << std::endl;
+    std::cout << " Starting analysis on file: " << targetFile << "\n" << std::endl;
 
     //executes parsing core flow
     if (!PEParser::Parse(targetFile)) {
-        std::cerr << "[-] Extraction processing failed." << std::endl;
+        std::cerr << " Extraction processing failed." << std::endl;
         return -1;
     }
 
-    std::cout << "\n[+] Extraction successfully completed." << std::endl;
+    std::cout << "\n Extraction successfully completed." << std::endl;
     return 0;
 }
