@@ -15,17 +15,16 @@ The goal is to gradually build a feature-complete PE parser while learning about
 - Locates the PE header using `e_lfanew`
 - Validates the NT (`PE\0\0`) signature
 - Parses and displays the COFF File Header
-- Skips the Optional Header (currently not parsed)
+- Optional Header parsing
 - Parses and displays the Section Table
 - Human-readable console output
+- Data Directory parsing
+- Import Table parsing
 
 ---
 
 ## Planned Features
 
-- [ ] Optional Header parsing
-- [ ] Data Directory parsing
-- [ ] Import Table parsing
 - [ ] Export Table parsing
 - [ ] Resource Directory parsing
 - [ ] Base Relocations

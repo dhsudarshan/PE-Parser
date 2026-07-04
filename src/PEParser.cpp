@@ -53,12 +53,23 @@ bool PEParser::Parse(const std::string& filePath) {
     std::vector<IMAGE_SECTION_HEADER> sections(fileHeader.NumberOfSections);
     file.read(reinterpret_cast<char*>(sections.data()), fileHeader.NumberOfSections * sizeof(IMAGE_SECTION_HEADER));
     
-
     PrintSectionTable(sections);
-
+    
+    IMAGE_IMPORT_DESCRIPTOR importTable;
+    file.read(reinterpret_cast<char*>(&importTable), sizeof(IMAGE_IMPORT_DESCRIPTOR));
+    PrintImportTable(file, optionalHeader ,sections);
     return true;
 }
 
+//convert relative virtual address to file offset
+DWORD rvaToOffset(DWORD rva, const std::vector<IMAGE_SECTION_HEADER>& sections){
+    for(auto& section : sections){
+        if(rva >= section.VirtualAddress && rva < section.VirtualAddress + section.Misc.VirtualSize){
+            return rva - section.VirtualAddress + section.PointerToRawData;
+        }
+    }
+    return 0;
+}
 void PEParser::PrintFileHeader(const IMAGE_FILE_HEADER& fileHeader) {
     std::cout << "\n--- COFF FILE HEADER ---" << std::endl;
     std::cout << "    Machine Type:         0x" << std::hex << fileHeader.Machine;
@@ -77,20 +88,26 @@ void PEParser::PrintFileHeader(const IMAGE_FILE_HEADER& fileHeader) {
 
 void PEParser::PrintOptionalHeader(const IMAGE_OPTIONAL_HEADER& optionalHeader){
     std::cout << " --- OPTIONAL HEADERS --- " << std::endl;
-    std::cout<< "   PE Format Type:   " << std::hex <<optionalHeader.Magic;
+    std::cout << "   PE Format Type:   " << std::hex <<optionalHeader.Magic;
 
     //magic field identifies whether optionalHeader uses PE32 or PE32+ format
-    if(optionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC){ std::cout << " (PE32)";}
-    else if(optionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC){ std::cout << " (PE32+)";}
+    if(optionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR32_MAGIC){ std::cout << " (PE32)" << std::endl;;}
+    else if(optionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC){ std::cout << " (PE32+)" << std::endl;}
+    else{ std::cout << " Unrecognized file format" << std::endl;}
 
+    //address of entry point is relative virtual address of entry point when file is loaded into memory
+    std::cout << "   Address of Entry Point:   " << optionalHeader.AddressOfEntryPoint << std::endl;
 
+    //image base defines preferred memory address file would like to be loaded onto. 
+    std::cout << "   ImageBase:   " << optionalHeader.ImageBase << std::endl;
 
+    std::cout << "   Size of Image:   " << optionalHeader.SizeOfImage << std::endl;
+
+    std::cout << "   Size of Code:   " << optionalHeader.SizeOfCode << std::endl;
 }
 
-//loop print function processing continuous section table block objects metadata matrix
 void PEParser::PrintSectionTable(const std::vector<IMAGE_SECTION_HEADER>& sections) {
     std::cout << "\n--- SECTION TABLE ---" << std::endl;
-    //configure output alignment display width spacing size, control text rendering
     std::cout << std::left << std::setw(12) << "Name" 
               << std::setw(14) << "VirtAddr" 
               << std::setw(14) << "VirtSize" 
@@ -98,18 +115,35 @@ void PEParser::PrintSectionTable(const std::vector<IMAGE_SECTION_HEADER>& sectio
               << std::setw(14) << "RawDataSize" << std::endl;
     std::cout << std::string(68, '-') << std::endl;
 
-    //iterate through every single section record row
     for (const auto& section : sections) {
-        //setup empty 8 byte character array safety null string container tracking names
         char nameStr[IMAGE_SIZEOF_SHORT_NAME + 1] = {0};
-        //copy raw block label tag name bits directly into clean string storage buffer
         std::memcpy(nameStr, section.Name, IMAGE_SIZEOF_SHORT_NAME);
 
-        //print dynamic metrics data grid track memory size mapping to raw block pointers
         std::cout << std::left << std::setw(12) << nameStr
                   << "0x" << std::setw(12) << std::hex << section.VirtualAddress
                   << "0x" << std::setw(12) << section.Misc.VirtualSize
                   << "0x" << std::setw(12) << section.PointerToRawData
                   << "0x" << std::setw(12) << section.SizeOfRawData << std::dec << std::endl;
     }
+}
+void PEParser::PrintImportTable(std::ifstream& file, const IMAGE_OPTIONAL_HEADER& optionalHeader, std::vector<IMAGE_SECTION_HEADER>& sections){
+    //import table rva is in data directory of optional header(index 1)
+    DWORD importRVA = optionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress;
+    DWORD importOffset = rvaToOffset(importRVA, sections);
+
+    IMAGE_IMPORT_DESCRIPTOR descriptor;
+    file.seekg(importOffset, std::ios::beg);
+
+    while (true) {
+        file.read(reinterpret_cast<char*>(&descriptor), sizeof(descriptor));
+        if (descriptor.Name == 0) break; 
+        auto savedPos = file.tellg();
+        file.seekg(rvaToOffset(descriptor.Name, sections), std::ios::beg);
+        
+        char dllName[256] = {0};
+        file.read(dllName, sizeof(dllName));
+        std::cout << "DLL: " << dllName << std::endl;
+        
+        file.seekg(savedPos, std::ios::beg);
+}
 }
