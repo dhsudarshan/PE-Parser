@@ -55,10 +55,11 @@ bool PEParser::Parse(const std::string& filePath) {
     
     PrintSectionTable(sections);
     
-    IMAGE_IMPORT_DESCRIPTOR importTable;
-    file.read(reinterpret_cast<char*>(&importTable), sizeof(IMAGE_IMPORT_DESCRIPTOR));
     PrintImportTable(file, optionalHeader ,sections);
+
+    PrintExportTable(file, optionalHeader, sections);
     return true;
+
 }
 
 //convert relative virtual address to file offset
@@ -142,8 +143,39 @@ void PEParser::PrintImportTable(std::ifstream& file, const IMAGE_OPTIONAL_HEADER
         
         char dllName[256] = {0};
         file.read(dllName, sizeof(dllName));
-        std::cout << "DLL: " << dllName << std::endl;
+        std::cout << "Import Module: " << dllName << std::endl;
         
         file.seekg(savedPos, std::ios::beg);
 }
+}
+void PEParser::PrintExportTable(std::ifstream& file, const IMAGE_OPTIONAL_HEADER& optionalHeader, std::vector<IMAGE_SECTION_HEADER>& sections){
+    //export table rva is right after import table rva, set to 0 if no exports
+    DWORD exportRVA = optionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
+    DWORD exportSize = optionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].Size;
+    if(exportRVA == 0 || exportSize == 0){
+        std::cout << "No exports from file.";
+        return; 
+    }
+    DWORD exportOffset = rvaToOffset(exportRVA, sections);
+
+    IMAGE_EXPORT_DIRECTORY exportDIR;
+    file.seekg(exportOffset, std::ios::beg);
+    file.read(reinterpret_cast<char*>(&exportDIR), sizeof(exportDIR));
+    if (exportDIR.Name != 0) {
+        DWORD nameOffset = rvaToOffset(exportDIR.Name, sections);
+        file.seekg(nameOffset, std::ios::beg);
+        
+        std::string moduleName;
+        char ch;
+        while (file.get(ch) && ch != '\0') {
+            moduleName += ch;
+        }
+        
+        std::cout << "\n\nExport Module: " << moduleName << std::endl;
+        std::cout << "Number of Functions: " << exportDIR.NumberOfFunctions << std::endl;
+        std::cout << "Number of Names: " << exportDIR.NumberOfNames << std::endl;
+    } else {
+        std::cout << "Export Module Name not specified.\n";
+    }
+
 }

@@ -15,4 +15,5 @@ private:
     static void PrintOptionalHeader(const IMAGE_OPTIONAL_HEADER& fileHeader);
     static void PrintSectionTable(const std::vector<IMAGE_SECTION_HEADER>& sections);
     static void PrintImportTable(std::ifstream& file, const IMAGE_OPTIONAL_HEADER& optionalHeader, std::vector<IMAGE_SECTION_HEADER>& sections);
+    static void PrintExportTable(std::ifstream& file, const IMAGE_OPTIONAL_HEADER& optionalHeader, std::vector<IMAGE_SECTION_HEADER>& sections);
 };

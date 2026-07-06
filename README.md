@@ -20,12 +20,13 @@ The goal is to gradually build a feature-complete PE parser while learning about
 - Human-readable console output
 - Data Directory parsing
 - Import Table parsing
+- Export Table parsing
+
 
 ---
 
 ## Planned Features
 
-- [ ] Export Table parsing
 - [ ] Resource Directory parsing
 - [ ] Base Relocations
 - [ ] TLS Directory
