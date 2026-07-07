@@ -4,7 +4,7 @@
 #include <cstring>
 #include <iomanip>
 
-bool PEParser::Parse(const std::string& filePath) {
+bool PEParser::Parse(const std::string& filePath, const std::string& dFilePath) {
     std::ifstream file(filePath, std::ios::binary);
     if (!file.is_open()) {
         std::cerr <<"Error: Could not open file: " << filePath << std::endl;
@@ -57,7 +57,7 @@ bool PEParser::Parse(const std::string& filePath) {
     
     PrintImportTable(file, optionalHeader ,sections);
 
-    PrintExportTable(file, optionalHeader, sections);
+    PrintExportTable(file, optionalHeader, sections, dFilePath);
     return true;
 
 }
@@ -148,7 +148,7 @@ void PEParser::PrintImportTable(std::ifstream& file, const IMAGE_OPTIONAL_HEADER
         file.seekg(savedPos, std::ios::beg);
 }
 }
-void PEParser::PrintExportTable(std::ifstream& file, const IMAGE_OPTIONAL_HEADER& optionalHeader, std::vector<IMAGE_SECTION_HEADER>& sections){
+void PEParser::PrintExportTable(std::ifstream& file, const IMAGE_OPTIONAL_HEADER& optionalHeader, std::vector<IMAGE_SECTION_HEADER>& sections,const std::string& dFilePath){
     //export table rva is right after import table rva, set to 0 if no exports
     DWORD exportRVA = optionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress;
     DWORD exportSize = optionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].Size;
@@ -177,5 +177,42 @@ void PEParser::PrintExportTable(std::ifstream& file, const IMAGE_OPTIONAL_HEADER
     } else {
         std::cout << "Export Module Name not specified.\n";
     }
+    if(dFilePath != ""){
+        std::ofstream outFile(dFilePath, std::ios::binary);
+        if (!outFile.is_open()){
+        std::cerr << "Error: Could not create output file at " << dFilePath << "\n";
+        std::cerr << "Make sure the directory exists.\n";
+        return;
+        }
+        DWORD functionOffset = rvaToOffset(exportDIR.AddressOfNames, sections);
 
+        int count = exportDIR.NumberOfFunctions;
+        for(int i = 0; i < count; i++){            
+            file.seekg(functionOffset + i * sizeof(DWORD), std::ios::beg);
+            
+            DWORD nameRVA = 0;
+            file.read(reinterpret_cast<char*>(&nameRVA), sizeof(DWORD));
+            
+            if (nameRVA != 0) {
+                DWORD nameStringOffset = rvaToOffset(nameRVA, sections);
+                
+                std::streampos returnPos = file.tellg();
+                file.seekg(nameStringOffset, std::ios::beg);
+                
+                std::string functionName = "";
+                char ch;
+                while(file.get(ch) && ch != '\0'){
+                    functionName += ch;
+                }
+                
+                if (!functionName.empty()) {
+                    outFile.write(functionName.c_str(), functionName.size());
+                    outFile.write("\n", 1);
+                }
+                
+                file.clear();
+                file.seekg(returnPos);
+            }
+        }
+}
 }
