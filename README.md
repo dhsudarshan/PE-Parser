@@ -21,23 +21,13 @@ The goal is to gradually build a feature-complete PE parser while learning about
 - Data Directory parsing
 - Import Table parsing
 - Export Table parsing
+- Store Exported Functions
+- RVA ↔ File Offset conversion
 
 
 ---
 
-## Planned Features
 
-- [ ] Resource Directory parsing
-- [ ] Base Relocations
-- [ ] TLS Directory
-- [ ] Debug Directory
-- [ ] RVA ↔ File Offset conversion
-- [ ] Section characteristics decoding
-- [ ] Better error handling
-- [ ] JSON output mode
-
-
----
 
 ## Building
 
@@ -72,17 +62,27 @@ cmake --build build
 > **Note:** If you previously configured the project with a different generator (for example, NMake or Visual Studio), delete the existing `build` directory before re-running CMake to avoid generator conflicts.
 
 ## Usage
-
 ```bash
-PE-Parser.exe <path_to_executable>
+PEParser.exe <path_to_executable>
 ```
 
 Example
 
 ```bash
-PE-Parser.exe C:\Windows\System32\notepad.exe
+PEParser.exe C:\Windows\System32\notepad.exe
 ```
-
+If you want to dump export functions into a file, use flag -a or --all: 
+```bash
+PEParser.exe <path_to_executable> -a <path_to_export_file>
+```
+or
+```bash
+PEParser.exe <path_to_executable> --all <path_to_export_file>
+```
+Example:
+```bash
+PEParser.exe C:\Windows\System32\kernel32.dll -a C:\Users\Me\Documents\filename.txt
+```
 ---
 
 ## Project Structure
